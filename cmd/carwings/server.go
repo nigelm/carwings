@@ -13,13 +13,15 @@ import (
 	"github.com/joeshaw/carwings"
 )
 
+var ServerRefreshTime time.Duration = 10 * time.Minute
+
 func updateLoop(ctx context.Context, s *carwings.Session) {
 	_, err := s.UpdateStatus()
 	if err != nil {
 		fmt.Printf("Error updating status: %s\n", err)
 	}
 
-	t := time.NewTicker(10 * time.Minute)
+	t := time.NewTicker(ServerRefreshTime)
 	defer t.Stop()
 
 	for {

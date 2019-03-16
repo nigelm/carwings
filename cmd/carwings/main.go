@@ -64,6 +64,7 @@ func main() {
 	fs.StringVar(&cfg.units, "units", unitsMiles, "units to use (miles or km). Defaults to miles.")
 	fs.StringVar(&carwings.BaseURL, "url", carwings.BaseURL, "base carwings api endpoint to use")
 	fs.DurationVar(&cfg.timeout, "timeout", 60*time.Second, "update timeout. Defaults to 60s")
+	fs.DurationVar(&ServerRefreshTime, "refresh", 10*time.Minute, "server refresh time. Defaults to 10m")
 	fs.BoolVar(&carwings.Debug, "debug", false, "debug mode")
 	fs.Usage = usage(fs)
 
