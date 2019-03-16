@@ -66,6 +66,7 @@ func runServer(s *carwings.Session, cfg config, args []string) error {
 				return
 			}
 
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			json.NewEncoder(w).Encode(status)
 
 		default:
@@ -83,6 +84,7 @@ func runServer(s *carwings.Session, cfg config, args []string) error {
 				return
 			}
 
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			json.NewEncoder(w).Encode(status)
 
 		default:
