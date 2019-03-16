@@ -93,6 +93,60 @@ func runServer(s *carwings.Session, cfg config, args []string) error {
 		}
 	})
 
+	http.HandleFunc("/locate", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			status, err := s.LocateVehicle()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			json.NewEncoder(w).Encode(status)
+
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	})
+
+	http.HandleFunc("/daily", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			status, err := s.GetDailyStatistics(time.Now().Local())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			json.NewEncoder(w).Encode(status)
+
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	})
+
+	http.HandleFunc("/monthly", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			status, err := s.GetMonthlyStatistics(time.Now().Local())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			json.NewEncoder(w).Encode(status)
+
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	})
+
 	http.HandleFunc("/charging/on", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "POST":
