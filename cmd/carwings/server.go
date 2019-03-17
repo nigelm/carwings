@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/joeshaw/carwings"
 )
 
@@ -57,14 +58,16 @@ func runServer(s *carwings.Session, cfg config, args []string) error {
 
 	go updateLoop(ctx, s)
 
-	http.HandleFunc("/battery", func(w http.ResponseWriter, r *http.Request) { handleBattery(w, r, s) })
-	http.HandleFunc("/climate", func(w http.ResponseWriter, r *http.Request) { handleClimate(w, r, s) })
-	http.HandleFunc("/locate", func(w http.ResponseWriter, r *http.Request) { handleLocate(w, r, s) })
-	http.HandleFunc("/daily", func(w http.ResponseWriter, r *http.Request) { handleDaily(w, r, s) })
-	http.HandleFunc("/monthly", func(w http.ResponseWriter, r *http.Request) { handleMonthly(w, r, s) })
-	http.HandleFunc("/charging/on", func(w http.ResponseWriter, r *http.Request) { handleChargingOn(w, r, s) })
-	http.HandleFunc("/climate/on", func(w http.ResponseWriter, r *http.Request) { handleClimateOn(w, r, s) })
-	http.HandleFunc("/climate/off", func(w http.ResponseWriter, r *http.Request) { handleClimateOff(w, r, s) })
+	rt := mux.NewRouter()
+	rt.Use(commonMiddleware) // sets content-type
+	rt.HandleFunc("/battery", func(w http.ResponseWriter, r *http.Request) { handleBattery(w, r, s) }).Methods("GET")
+	rt.HandleFunc("/climate", func(w http.ResponseWriter, r *http.Request) { handleClimate(w, r, s) }).Methods("GET")
+	rt.HandleFunc("/locate", func(w http.ResponseWriter, r *http.Request) { handleLocate(w, r, s) }).Methods("GET")
+	rt.HandleFunc("/daily", func(w http.ResponseWriter, r *http.Request) { handleDaily(w, r, s) }).Methods("GET")
+	rt.HandleFunc("/monthly", func(w http.ResponseWriter, r *http.Request) { handleMonthly(w, r, s) }).Methods("GET")
+	rt.HandleFunc("/charging/on", func(w http.ResponseWriter, r *http.Request) { handleChargingOn(w, r, s) }).Methods("PUT")
+	rt.HandleFunc("/climate/{which:(?:off|on)}", func(w http.ResponseWriter, r *http.Request) { handleClimateChange(w, r, s) }).Methods("PUT")
+	http.Handle("/", rt)
 
 	srv.Addr = ":8040"
 	srv.Handler = nil
@@ -72,172 +75,106 @@ func runServer(s *carwings.Session, cfg config, args []string) error {
 	return srv.ListenAndServe()
 }
 
+// commonMiddleware sets the content type for all returns
+func commonMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func handleBattery(w http.ResponseWriter, r *http.Request, s *carwings.Session) {
-	switch r.Method {
-	case "GET":
-		status, err := s.BatteryStatus()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		json.NewEncoder(w).Encode(status)
-
-	default:
-		http.NotFound(w, r)
+	status, err := s.BatteryStatus()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	json.NewEncoder(w).Encode(status)
 }
 
 func handleClimate(w http.ResponseWriter, r *http.Request, s *carwings.Session) {
-	switch r.Method {
-	case "GET":
-		status, err := s.ClimateControlStatus()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		json.NewEncoder(w).Encode(status)
-
-	default:
-		http.NotFound(w, r)
+	status, err := s.ClimateControlStatus()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	json.NewEncoder(w).Encode(status)
 }
 
 func handleLocate(w http.ResponseWriter, r *http.Request, s *carwings.Session) {
-	switch r.Method {
-	case "GET":
-		status, err := s.LocateVehicle()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		json.NewEncoder(w).Encode(status)
-
-	default:
-		http.NotFound(w, r)
+	status, err := s.LocateVehicle()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	json.NewEncoder(w).Encode(status)
 }
 
 func handleDaily(w http.ResponseWriter, r *http.Request, s *carwings.Session) {
-	switch r.Method {
-	case "GET":
-		status, err := s.GetDailyStatistics(time.Now().Local())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		json.NewEncoder(w).Encode(status)
-
-	default:
-		http.NotFound(w, r)
+	status, err := s.GetDailyStatistics(time.Now().Local())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	json.NewEncoder(w).Encode(status)
 }
 
 func handleMonthly(w http.ResponseWriter, r *http.Request, s *carwings.Session) {
-	switch r.Method {
-	case "GET":
-		status, err := s.GetMonthlyStatistics(time.Now().Local())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		json.NewEncoder(w).Encode(status)
-
-	default:
-		http.NotFound(w, r)
+	status, err := s.GetMonthlyStatistics(time.Now().Local())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	json.NewEncoder(w).Encode(status)
 }
 
 func handleChargingOn(w http.ResponseWriter, r *http.Request, s *carwings.Session) {
-	switch r.Method {
-	case "POST":
-		fmt.Println("Charging request")
+	fmt.Println("Charging request")
 
-		ch := make(chan error, 1)
-		go func() {
-			ch <- s.ChargingRequest()
-		}()
+	ch := make(chan error, 1)
+	go func() {
+		ch <- s.ChargingRequest()
+	}()
 
-		select {
-		case err := <-ch:
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-
-		case <-time.After(commandTimeout):
-			w.WriteHeader(http.StatusAccepted)
+	select {
+	case err := <-ch:
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
-	default:
-		http.NotFound(w, r)
-		return
+	case <-time.After(commandTimeout):
+		w.WriteHeader(http.StatusAccepted)
 	}
 }
 
-func handleClimateOn(w http.ResponseWriter, r *http.Request, s *carwings.Session) {
-	switch r.Method {
-	case "POST":
-		fmt.Println("Climate control on request")
+func handleClimateChange(w http.ResponseWriter, r *http.Request, s *carwings.Session) {
+	vars := mux.Vars(r)
+	change := vars["change"]
+	fmt.Println("Climate control", change, "request")
 
-		ch := make(chan error, 1)
-		go func() {
+	ch := make(chan error, 1)
+	go func() {
+		if change == "on" {
 			_, err := s.ClimateOnRequest()
 			ch <- err
-		}()
-
-		select {
-		case err := <-ch:
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-
-		case <-time.After(commandTimeout):
-			w.WriteHeader(http.StatusAccepted)
-		}
-
-	default:
-		http.NotFound(w, r)
-		return
-	}
-}
-
-func handleClimateOff(w http.ResponseWriter, r *http.Request, s *carwings.Session) {
-	switch r.Method {
-	case "POST":
-		fmt.Println("Climate control off request")
-
-		ch := make(chan error, 1)
-		go func() {
+		} else {
 			_, err := s.ClimateOffRequest()
 			ch <- err
-		}()
+		}
+	}()
 
-		select {
-		case err := <-ch:
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-
-		case <-time.After(commandTimeout):
-			w.WriteHeader(http.StatusAccepted)
+	select {
+	case err := <-ch:
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
-	default:
-		http.NotFound(w, r)
-		return
+	case <-time.After(commandTimeout):
+		w.WriteHeader(http.StatusAccepted)
 	}
 }
